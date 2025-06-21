@@ -64,11 +64,10 @@ jobs:
             target/surefire-reports
             target/site/jacoco
 
-    analyze:
+  analyze:
     runs-on: self-hosted
     needs: test
-    env:
-      JAVA_HOME: ${{ env.JAVA_HOME }}
+    continue-on-error: true  # = allow_failure in GitLab
     steps:
       - uses: actions/checkout@v4
 
@@ -78,10 +77,20 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Compile for SonarQube
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
+      - name: Compile for SonarQube (ensures .class files)
         run: mvn compile
 
-      - name: Run SonarQube
+      - name: Find .class output path (debug)
+        run: find . -name "*.class"
+
+      - name: SonarQube Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
