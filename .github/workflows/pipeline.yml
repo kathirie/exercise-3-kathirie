@@ -127,6 +127,9 @@ jobs:
     runs-on: self-hosted
     needs: package
     if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: test
+      url: http://localhost:8080/ConnectFour
     steps:
       - name: Stop old container
         run: docker rm -f tomcat || true
@@ -141,3 +144,16 @@ jobs:
 
       - name: Run Docker container
         run: docker run --rm -d --name tomcat -p 8080:8080 connect-four
+
+  stop-test:
+    runs-on: self-hosted
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: test
+      action: stop
+    steps:
+      - name: Stop Tomcat container
+        run: docker rm -f tomcat || true
+
+      - name: Remove Docker image
+        run: docker image rm -f connect-four || true
