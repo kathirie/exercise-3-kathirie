@@ -126,34 +126,27 @@ jobs:
   deploy:
     runs-on: self-hosted
     needs: package
-    if: github.event_name == 'workflow_dispatch'
     environment:
       name: test
       url: http://localhost:8080/ConnectFour
     steps:
-      - name: Stop old container
-        run: docker rm -f tomcat || true
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4.3.0
+      with:
+          name: war
+          path: ./target
+    - name: Deploy WAR to Tomcat
+      run: |
+              war_file=$(find ./target -name "*.war" | head -n 1)
+              cp "$war_file" /usr/local/tomcat/webapps/ConnectFour.war
 
-      - name: Remove old image
-        run: docker image rm -f connect-four || true
 
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t connect-four .
-
-      - name: Run Docker container
-        run: docker run --rm -d --name tomcat -p 8080:8080 connect-four
 
   stop-test:
+    name: stop Deployment
     runs-on: self-hosted
     if: github.event_name == 'workflow_dispatch'
-    environment:
-      name: test
-      action: stop
     steps:
       - name: Stop Tomcat container
-        run: docker rm -f tomcat || true
-
-      - name: Remove Docker image
-        run: docker image rm -f connect-four || true
+        run: |
+          rm -f /usr/local/tomcat/webapps/ConnectFour.war
