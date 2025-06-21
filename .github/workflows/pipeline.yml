@@ -37,13 +37,16 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
-      - name: Compile (for SonarQube analysis)
+
+      - name: Compile for SonarQube
         run: mvn compile
+
       - name: SonarQube Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -51,8 +54,8 @@ jobs:
           mvn sonar:sonar \
             -Dsonar.projectKey=ConnectFour \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.java.binaries=target-classes-spw4-connectfour \
             -Dsonar.qualitygate.wait=true
 
   package:
