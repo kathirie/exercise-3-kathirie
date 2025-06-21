@@ -11,30 +11,63 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
       - name: Build with Maven
         run: mvn compile
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-classes
+          path: target
 
   test:
     runs-on: self-hosted
     needs: build
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
       - name: Run tests
         run: mvn test
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports
+            target/site/jacoco
 
   analyze:
     runs-on: self-hosted
     needs: test
+    continue-on-error: true  # = allow_failure in GitLab
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +77,18 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Compile for SonarQube
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
+      - name: Compile for SonarQube (ensures .class files)
         run: mvn compile
+
+      - name: Find .class output path (debug)
+        run: find . -name "*.class"
 
       - name: SonarQube Analysis
         env:
@@ -55,7 +98,7 @@ jobs:
             -Dsonar.projectKey=ConnectFour \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target-classes-spw4-connectfour \
+            -Dsonar.java.binaries=target/classes \
             -Dsonar.qualitygate.wait=true
 
   package:
@@ -63,13 +106,28 @@ jobs:
     needs: analyze
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
       - name: Package
         run: mvn package
+
+      - name: Upload WAR file
+        uses: actions/upload-artifact@v4
+        with:
+          name: connectfour-war
+          path: target/*.war
 
   deploy:
     runs-on: self-hosted
