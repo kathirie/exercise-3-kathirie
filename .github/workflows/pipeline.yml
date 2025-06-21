@@ -15,24 +15,22 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Build with Maven
+        run: mvn compile
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: target
 
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-
-
-      - name: Build with Maven
-        run: mvn compile
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: compiled-classes
-          path: target
+          path: .m2
+          key: build-cache-${{ github.run_id }}
+          restore-keys: build-cache-
 
   test:
     runs-on: self-hosted
@@ -40,18 +38,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-
+          path: .m2
+          key: build-cache-${{ github.run_id }}
+          restore-keys: build-cache-
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
 
       - name: Run tests
         run: mvn test
@@ -66,59 +64,55 @@ jobs:
 
   analyze:
     runs-on: self-hosted
-    needs: test
-    continue-on-error: true  # = allow_failure in GitLab
+    needs: [build, test]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
 
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-
+          path: .m2
+          key: build-cache-${{ github.run_id }}
+          restore-keys: build-cache-
 
-      - name: Compile for SonarQube (ensures .class files)
-        run: mvn compile
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: build-artifact
+          path: ./target
 
-      - name: Find .class output path (debug)
-        run: find . -name "*.class"
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
 
       - name: SonarQube Analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn sonar:sonar \
             -Dsonar.projectKey=ConnectFour \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes \
-            -Dsonar.qualitygate.wait=true
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.java.binaries=target/classes
 
   package:
     runs-on: self-hosted
-    needs: analyze
+    needs: test
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
 
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-
+          path: .m2
+          key: build-cache-${{ github.run_id }}
+          restore-keys: build-cache-
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
 
       - name: Package
         run: mvn package
