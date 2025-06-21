@@ -66,4 +66,11 @@ Runners are running (had to make another docker runner, couldn't delete the old 
 
 ### Task 1.c
 
-<!--- describe your solution here --->
+github actions - pipeline is running
+
+![working_pipeline](./doc/03_01.png)
+
+game can be reached using correct port
+
+![running_game](./doc/03_02.png)
+
