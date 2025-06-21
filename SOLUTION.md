@@ -1,9 +1,9 @@
 SPW4 - Exercise 3
 =================
 
-Name: _____________
+Name: Katharina Riemelmoser
 
-Effort in hours: __
+Effort in hours: 12
 
 ## 1. Connect Four Web Application and CI/CD Pipeline
 
