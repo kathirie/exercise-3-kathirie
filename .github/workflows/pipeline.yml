@@ -1,0 +1,86 @@
+name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # erlaubt manuelles Ausführen
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build with Maven
+        run: mvn compile
+
+  test:
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Run tests
+        run: mvn test
+        continue-on-error: false
+
+  analyze:
+    runs-on: self-hosted
+    needs: [build, test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: SonarQube Analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=ConnectFour \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.qualitygate.wait=true
+
+  package:
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Package
+        run: mvn package
+
+  deploy:
+    runs-on: self-hosted
+    needs: package
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Stop old container
+        run: docker rm -f tomcat || true
+
+      - name: Remove old image
+        run: docker image rm -f connect-four || true
+
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t connect-four .
+
+      - name: Run Docker container
+        run: docker run --rm -d --name tomcat -p 8080:8080 connect-four
