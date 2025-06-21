@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # erlaubt manuelles Ausführen
+  workflow_dispatch:
 
 jobs:
   build:
@@ -31,11 +31,10 @@ jobs:
           java-version: 21
       - name: Run tests
         run: mvn test
-        continue-on-error: false
 
   analyze:
     runs-on: self-hosted
-    needs: [build, test]
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
@@ -43,6 +42,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Compile (for SonarQube analysis)
+        run: mvn compile
       - name: SonarQube Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -51,11 +52,12 @@ jobs:
             -Dsonar.projectKey=ConnectFour \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.java.binaries=target/classes \
             -Dsonar.qualitygate.wait=true
 
   package:
     runs-on: self-hosted
-    needs: test
+    needs: analyze
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
